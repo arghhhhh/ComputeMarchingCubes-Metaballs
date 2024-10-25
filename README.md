@@ -29,6 +29,7 @@ What's inside
 
 This project contains two sample scenes:
 
+- **Metaballs**: Visualizes a simple metaballs scene.
 - **NoiseField**: Visualizes a simple animating noise field.
 - **VolumeData**: Visualizes a CT scan dataset from the
   [Stanford volume data archive].
