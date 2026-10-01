@@ -46,6 +46,10 @@ namespace MarchingCubes
 
         int VoxelCount => _dimensions.x * _dimensions.y * _dimensions.z;
 
+        // ComputeBuffer can't be empty, so with no metaballs the buffers keep
+        // one zero-radius entry, which contributes nothing to the field.
+        int BufferCount => Mathf.Max(1, metaballs.Count);
+
         ComputeBuffer _voxelBuffer;
         ComputeBuffer _positionsBuffer;
         ComputeBuffer _radiiBuffer;
@@ -55,6 +59,7 @@ namespace MarchingCubes
         // per-frame allocations, and compared against to detect changes.
         Vector3[] _positionsScratch;
         float[] _radiiScratch;
+        int _uploadedCount = -1;
 
         // Settings the last build used.
         bool _fieldDirty = true;
@@ -68,6 +73,7 @@ namespace MarchingCubes
 
         void Start()
         {
+            _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float));
             InitializeMetaballBuffers();
             _builder = new MeshBuilder(_dimensions, _triangleBudget, _builderCompute);
             GetComponent<MeshFilter>().sharedMesh = _builder.Mesh;
@@ -75,7 +81,8 @@ namespace MarchingCubes
 
         void OnDestroy()
         {
-            ReleaseBuffers();
+            _voxelBuffer?.Dispose();
+            ReleaseMetaballBuffers();
             _builder.Dispose();
         }
 
@@ -120,16 +127,15 @@ namespace MarchingCubes
         void InitializeMetaballBuffers()
         {
             // Create buffers
-            _voxelBuffer = new ComputeBuffer(VoxelCount, sizeof(float));
-            _positionsBuffer = new ComputeBuffer(metaballs.Count, sizeof(float) * 3);
-            _radiiBuffer = new ComputeBuffer(metaballs.Count, sizeof(float));
-            _positionsScratch = new Vector3[metaballs.Count];
-            _radiiScratch = new float[metaballs.Count];
+            _positionsBuffer = new ComputeBuffer(BufferCount, sizeof(float) * 3);
+            _radiiBuffer = new ComputeBuffer(BufferCount, sizeof(float));
+            _positionsScratch = new Vector3[BufferCount];
+            _radiiScratch = new float[BufferCount];
         }
 
         bool MetaballsChanged()
         {
-            if (_positionsScratch.Length != metaballs.Count) return true;
+            if (_uploadedCount != metaballs.Count) return true;
 
             for (int i = 0; i < metaballs.Count; i++)
             {
@@ -144,26 +150,27 @@ namespace MarchingCubes
         void UploadMetaballBuffers()
         {
             // Ensure buffers match the metaball count
-            if (_positionsBuffer.count != metaballs.Count)
+            if (_positionsBuffer.count != BufferCount)
             {
-                ReleaseBuffers();
+                ReleaseMetaballBuffers();
                 InitializeMetaballBuffers();
             }
 
-            // Update positions and radii arrays
-            for (int i = 0; i < metaballs.Count; i++)
+            // Update positions and radii arrays (padding entries get radius 0)
+            for (int i = 0; i < BufferCount; i++)
             {
-                _positionsScratch[i] = metaballs[i].Position;
-                _radiiScratch[i] = metaballs[i].Radius;
+                var active = i < metaballs.Count;
+                _positionsScratch[i] = active ? metaballs[i].Position : Vector3.zero;
+                _radiiScratch[i] = active ? metaballs[i].Radius : 0;
             }
 
             _positionsBuffer.SetData(_positionsScratch);
             _radiiBuffer.SetData(_radiiScratch);
+            _uploadedCount = metaballs.Count;
         }
 
-        void ReleaseBuffers()
+        void ReleaseMetaballBuffers()
         {
-            _voxelBuffer?.Dispose();
             _positionsBuffer?.Dispose();
             _radiiBuffer?.Dispose();
         }
