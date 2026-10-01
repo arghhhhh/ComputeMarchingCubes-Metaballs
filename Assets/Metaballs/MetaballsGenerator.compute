@@ -6,10 +6,19 @@ RWStructuredBuffer<float> Voxels; // Voxel buffer for output
 StructuredBuffer<float3> MetaballCenters; // Buffer of metaball centers
 StructuredBuffer<float> MetaballRadii;    // Buffer of metaball radii
 
+float3 VoxelToLocal(uint3 id)
+{
+    return Scale * (id + 0.5 - Dims / 2); // Position in 3D space for each voxel
+}
+
 [numthreads(8, 8, 8)]
 void MetaballFieldGenerator(uint3 id : SV_DispatchThreadID)
 {
-    float3 p = Scale * (id + 0.5 - Dims / 2); // Position in 3D space for each voxel
+    // Skip the padding threads of the last thread groups when Dims is not a
+    // multiple of 8; they would otherwise write outside the voxel grid.
+    if (any(id >= Dims)) return;
+
+    float3 p = VoxelToLocal(id);
     float value = 0.0;
 
     // Loop through each metaball and add its contribution to the field value

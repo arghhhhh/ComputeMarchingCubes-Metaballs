@@ -12,6 +12,14 @@ static class ComputeShaderExtensions
       (this ComputeShader compute, string name, Vector3Int v)
       => compute.SetInts(name, v.x, v.y, v.z);
 
+    public static void SetInts
+      (this ComputeShader compute, int nameID, (int x, int y, int z) t)
+      => compute.SetInts(nameID, t.x, t.y, t.z);
+
+    public static void SetInts
+      (this ComputeShader compute, int nameID, Vector3Int v)
+      => compute.SetInts(nameID, v.x, v.y, v.z);
+
     public static void DispatchThreads
       (this ComputeShader compute, int kernel, int x, int y, int z)
     {
